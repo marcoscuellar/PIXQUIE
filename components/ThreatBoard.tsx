@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import PixquiMark from "./PixquiMark";
 
 export type BoardTheme = "dark" | "mono" | "light";
@@ -11,6 +12,12 @@ type Props = {
   embed?: boolean;
   theme?: BoardTheme;
   mode?: BoardMode;
+  /**
+   * Gate the Assist view behind sign-up. When locked (the default for free boards), the
+   * second segment is a "SIGN UP" CTA that routes to sign-up instead of toggling Assist on.
+   * Pass `false` for an authenticated Assist context to restore the real toggle.
+   */
+  lockAssist?: boolean;
 };
 
 type Trend = "up" | "down" | "flat";
@@ -52,7 +59,10 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
-export default function ThreatBoard({ embed = false, theme: themeProp = "dark", mode: modeProp = "free" }: Props) {
+export default function ThreatBoard({ embed = false, theme: themeProp = "dark", mode: modeProp = "free", lockAssist }: Props) {
+  const router = useRouter();
+  // Free boards lock Assist behind sign-up; an explicit assist board does not.
+  const locked = lockAssist ?? modeProp !== "assist";
   const [mode, setMode] = React.useState<BoardMode>(modeProp === "assist" ? "assist" : "free");
   const [themeState, setThemeState] = React.useState<BoardTheme>(themeProp === "light" ? "light" : themeProp);
   const [now, setNow] = React.useState<Date | null>(null);
@@ -253,7 +263,18 @@ export default function ThreatBoard({ embed = false, theme: themeProp = "dark", 
           )}
           <div style={{ display: "inline-flex", background: P.toggleTrack, border: `1px solid ${P.toggleBorder}`, borderRadius: 11, padding: 3, gap: 2 }}>
             <button onClick={() => setMode("free")} style={{ ...modeSegBase, ...(assist ? segIdle : segActive) }}>FREE</button>
-            <button onClick={() => setMode("assist")} style={{ ...modeSegBase, ...(assist ? segActive : segIdle) }}>AI ASSIST</button>
+            {locked ? (
+              // Assist is a paid upgrade — don't preview it; send free users to sign up.
+              <button
+                onClick={() => router.push("/onboarding")}
+                title="Sign up to unlock Pixqui Assist"
+                style={{ ...modeSegBase, ...segIdle }}
+              >
+                SIGN UP
+              </button>
+            ) : (
+              <button onClick={() => setMode("assist")} style={{ ...modeSegBase, ...(assist ? segActive : segIdle) }}>AI ASSIST</button>
+            )}
           </div>
         </div>
       </header>
