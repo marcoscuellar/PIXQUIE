@@ -29,7 +29,9 @@ type Datum = {
   note?: string;
 };
 
-const DATA: Datum[] = [
+// Fallback used for the initial render and if the live feed is unavailable. Replaced at
+// runtime by real CISA KEV data fetched from /api/threats.
+const FALLBACK: Datum[] = [
   { time: "14:02", code: "CVE-2026-2741", name: "Home-router remote takeover", surface: "HOME NET", cvss: "9.8", tier: "ACT", status: "EXPLOITED", trend: "up", mine: true, note: "Your home Wi-Fi runs through this router." },
   { time: "13:58", code: "SMISH-0934", name: "Courier delivery text scam", surface: "SMS", cvss: "6.4", tier: "WATCH", status: "SPREADING", trend: "up", mine: true, note: "You get parcel updates by text." },
   { time: "13:51", code: "CVE-2026-1180", name: "Chrome V8 type-confusion", surface: "BROWSER", cvss: "8.1", tier: "WATCH", status: "PATCH OUT", trend: "flat", mine: true, note: "You browse on Chrome daily." },
@@ -56,7 +58,34 @@ export default function ThreatBoard({ embed = false, theme: themeProp = "dark", 
   const [now, setNow] = React.useState<Date | null>(null);
   const [scanned, setScanned] = React.useState(1247);
   const [cw, setCw] = React.useState(1280);
+  const [data, setData] = React.useState<Datum[]>(FALLBACK);
+  const [source, setSource] = React.useState("CISA KEV");
   const rootRef = React.useRef<HTMLDivElement>(null);
+
+  // Pull live CISA KEV data (ranked Act/Watch/Calm) from the API; keep the fallback on error.
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch("/api/threats")
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((feed) => {
+        const incoming: unknown = feed?.threats;
+        const rows = Array.isArray(incoming)
+          ? (incoming as Datum[]).filter(
+              (d) => d && typeof d.code === "string" && (d.tier === "ACT" || d.tier === "WATCH" || d.tier === "CALM"),
+            )
+          : [];
+        if (!cancelled && rows.length) {
+          setData(rows);
+          if (typeof feed?.source === "string") setSource(feed.source);
+        }
+      })
+      .catch(() => {
+        /* offline / blocked — keep the bundled fallback */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   React.useEffect(() => {
     setNow(new Date());
@@ -138,7 +167,7 @@ export default function ThreatBoard({ embed = false, theme: themeProp = "dark", 
   const trendOf = (t: Trend) =>
     t === "up" ? { trend: "▲", trendColor: C.red } : t === "down" ? { trend: "▼", trendColor: C.green } : { trend: "▬", trendColor: P.muted };
 
-  const visible = assist ? DATA.filter((d) => d.mine) : DATA;
+  const visible = assist ? data.filter((d) => d.mine) : data;
   const rows = visible.map((d) => ({
     time: d.time, code: d.code, name: d.name, surface: d.surface, cvss: d.cvss,
     tier: d.tier, ...tier[d.tier], status: d.status, statusColor: statusColor[d.status] || P.muted, ...trendOf(d.trend),
@@ -148,16 +177,16 @@ export default function ThreatBoard({ embed = false, theme: themeProp = "dark", 
 
   const arrowOf = (t: Trend) => (t === "up" ? "▲" : t === "down" ? "▼" : "▬");
   const colorOf = (d: Datum) => (d.tier === "ACT" ? C.red : d.tier === "CALM" ? C.green : C.amber);
-  const tItems = DATA.slice(0, 9).map((d) => ({
+  const tItems = data.slice(0, 9).map((d) => ({
     arrow: arrowOf(d.trend), code: d.code, tag: d.surface.replace(" ", "-"), cvss: d.cvss, status: d.status.replace(" ", "-"), color: colorOf(d),
   }));
   const tickerLoop = [...tItems, ...tItems];
 
-  const clearedCount = DATA.length - visible.length;
-  const actCount = DATA.filter((d) => d.tier === "ACT").length;
-  const watchCount = DATA.filter((d) => d.tier === "WATCH").length;
-  const myAct = DATA.filter((d) => d.mine && d.tier === "ACT").length;
-  const myWatch = DATA.filter((d) => d.mine && d.tier === "WATCH").length;
+  const clearedCount = data.length - visible.length;
+  const actCount = data.filter((d) => d.tier === "ACT").length;
+  const watchCount = data.filter((d) => d.tier === "WATCH").length;
+  const myAct = data.filter((d) => d.mine && d.tier === "ACT").length;
+  const myWatch = data.filter((d) => d.mine && d.tier === "WATCH").length;
 
   const clock = now ? `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}` : "--:--:--";
 
@@ -169,7 +198,7 @@ export default function ThreatBoard({ embed = false, theme: themeProp = "dark", 
         { label: "SCANNED TODAY", value: scanned.toLocaleString(), delta: "live", color: P.brand, deltaColor: P.muted, sub: "Signals read by Pixqui Assist" },
       ]
     : [
-        { label: "THREAT INDEX", value: String(DATA.length), delta: "on board", color: P.brand, deltaColor: P.muted, sub: "Tracked this edition" },
+        { label: "THREAT INDEX", value: String(data.length), delta: "on board", color: P.brand, deltaColor: P.muted, sub: "Tracked this edition" },
         { label: "EXPLOITED NOW", value: String(actCount), delta: "▲", color: C.red, deltaColor: C.red, sub: "Act tier · active attacks" },
         { label: "WATCHING", value: String(watchCount), delta: "▬", color: C.amber, deltaColor: C.amber, sub: "High severity, not yet at you" },
         { label: "SCANNED TODAY", value: scanned.toLocaleString(), delta: "live", color: P.brand, deltaColor: P.muted, sub: "Global signals read" },
@@ -353,6 +382,14 @@ export default function ThreatBoard({ embed = false, theme: themeProp = "dark", 
           Cyber Intelligence Powered by Grok · xAI
         </span>
       </footer>
+
+      {/* data provenance */}
+      <div style={{ margin: "12px clamp(18px,3vw,40px) 0", display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ width: 5, height: 5, borderRadius: "50%", background: P.clock, display: "inline-block" }} />
+        <span style={{ fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: P.muted }}>
+          Data source: {source} · CVSS via NVD
+        </span>
+      </div>
     </div>
   );
 }

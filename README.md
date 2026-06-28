@@ -27,6 +27,34 @@ pixel-faithful translations of the high-fidelity HTML references.
   `FREE` / `AI ASSIST` mode toggle that filters the board to "what reaches you".
 - `components/PixquiMark.tsx` — the parameterised spiral logo mark.
 
+## Live data (Free tier)
+
+The Live Global Threat Board is wired to **real CISA KEV** (Known Exploited Vulnerabilities)
+data — the hardcoded array in `ThreatBoard.tsx` is now only a fallback.
+
+```
+ThreatBoard (client) ──GET /api/threats──► lib/threats.getThreats()
+                                              ├─ lib/sources/cisaKev.ts  — latest 12 KEV entries
+                                              ├─ lib/sources/nvd.ts      — best-effort CVSS per CVE
+                                              └─ lib/rank.ts             — Act / Watch / Calm ranking
+```
+
+- **Source:** CISA KEV via the GitHub mirror (`cisagov/kev-data`), falling back to the
+  canonical `cisa.gov` feed, then to a bundled recent snapshot (`SAMPLE_KEV`) so the board is
+  never empty. Cached 4h (`revalidate: 14400`) to match the edition cadence.
+- **Ranking** (`lib/rank.ts`): everything in KEV is actively exploited, so —
+  `ACT` = ransomware-linked OR CVSS ≥ 9 OR added in the last 7 days; `WATCH` = CVSS ≥ 7 or
+  unknown score; `CALM` = CVSS < 7. (CALM is usually empty from KEV alone — green "good news"
+  rows come from other sources, see `BACKEND_PLAN.md`.)
+- **CVSS** is enriched from **NVD** best-effort (the KEV feed has no scores). Unresolved CVEs
+  show `—`. Set `NVD_API_KEY` for a higher rate limit; see `.env.example`.
+- The board carries a small "Data source: CISA KEV · CVSS via NVD" provenance label.
+
+`npx tsx scripts/preview-threats.ts <kev.json>` runs the pure parse/rank/map pipeline against
+a local KEV snapshot for quick verification.
+
+See **`BACKEND_PLAN.md`** for the future pipeline (Supabase cron + edition diffing + Grok rewriting).
+
 ## Design tokens
 
 Brand system: warm-paper (`#F1F1F0`) + ink (`#14110F`) + amber (`#F6AD2E`),
