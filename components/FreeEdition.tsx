@@ -4,11 +4,10 @@ import * as React from "react";
 import PixquiMark from "./PixquiMark";
 import BoardWrapper from "./BoardWrapper";
 
-// Free view: the board has 3 ACT, 5 WATCH, 4 CALM = 12 items total.
+// Free view is the raw wire — Act + Watch only. Calm ("good news") is an Assist perk.
 const ACT_COUNT = 3;
 const WATCH_COUNT = 5;
-const CALM_COUNT = 4;
-const SURFACED = ACT_COUNT + WATCH_COUNT + CALM_COUNT;
+const SURFACED = ACT_COUNT + WATCH_COUNT;
 
 const SOURCE_CARDS: { dot: string; kicker: string; kickerColor: string; title: string; body: string }[] = [
   {
@@ -58,7 +57,7 @@ export default function FreeEdition() {
   }, []);
 
   const headline = "Today's threats, ranked";
-  const summaryLine = `${ACT_COUNT} to act on, ${WATCH_COUNT} worth a glance, ${CALM_COUNT} good to know — the same clean briefing everyone gets.`;
+  const summaryLine = `${ACT_COUNT} to act on, ${WATCH_COUNT} worth a glance — the raw wire, ranked live. Want it calmer and personalized, with the noise removed? That's Pixqui Assist.`;
 
   return (
     <div style={{ background: "#F1F1F0", color: "#14110F", fontFamily: "'Hanken Grotesk',sans-serif", WebkitFontSmoothing: "antialiased", minHeight: "100vh", overflow: "hidden" }}>

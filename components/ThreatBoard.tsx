@@ -167,7 +167,9 @@ export default function ThreatBoard({ embed = false, theme: themeProp = "dark", 
   const trendOf = (t: Trend) =>
     t === "up" ? { trend: "▲", trendColor: C.red } : t === "down" ? { trend: "▼", trendColor: C.green } : { trend: "▬", trendColor: P.muted };
 
-  const visible = assist ? data.filter((d) => d.mine) : data;
+  // Free tier is the raw wire: Act + Watch only. Calm ("good news" / reassurance) is an
+  // Assist perk, so it's dropped from the default free view. Assist filters to "mine".
+  const visible = assist ? data.filter((d) => d.mine) : data.filter((d) => d.tier !== "CALM");
   const rows = visible.map((d) => ({
     time: d.time, code: d.code, name: d.name, surface: d.surface, cvss: d.cvss,
     tier: d.tier, ...tier[d.tier], status: d.status, statusColor: statusColor[d.status] || P.muted, ...trendOf(d.trend),
@@ -198,7 +200,7 @@ export default function ThreatBoard({ embed = false, theme: themeProp = "dark", 
         { label: "SCANNED TODAY", value: scanned.toLocaleString(), delta: "live", color: P.brand, deltaColor: P.muted, sub: "Signals read by Pixqui Assist" },
       ]
     : [
-        { label: "THREAT INDEX", value: String(data.length), delta: "on board", color: P.brand, deltaColor: P.muted, sub: "Tracked this edition" },
+        { label: "THREAT INDEX", value: String(visible.length), delta: "on board", color: P.brand, deltaColor: P.muted, sub: "Act & Watch this edition" },
         { label: "EXPLOITED NOW", value: String(actCount), delta: "▲", color: C.red, deltaColor: C.red, sub: "Act tier · active attacks" },
         { label: "WATCHING", value: String(watchCount), delta: "▬", color: C.amber, deltaColor: C.amber, sub: "High severity, not yet at you" },
         { label: "SCANNED TODAY", value: scanned.toLocaleString(), delta: "live", color: P.brand, deltaColor: P.muted, sub: "Global signals read" },

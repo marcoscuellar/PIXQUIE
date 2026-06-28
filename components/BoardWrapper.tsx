@@ -19,7 +19,7 @@ export default function BoardWrapper({ context = "free", theme, mode }: Props) {
   const boardTheme: BoardTheme = theme || (context === "assist" ? "mono" : "dark");
 
   const upsellMap: Record<"free" | "assist", { upsellText: string; ctaLabel: string; ctaPrice: string; showUpsell: boolean }> = {
-    free: { upsellText: "Tired of scanning the whole wire? Assist keeps only the threats that reach you.", ctaLabel: "Try Pixqui Assist", ctaPrice: "$4/mo", showUpsell: true },
+    free: { upsellText: "This is the raw wire — every Act & Watch threat, unfiltered. Want a calmer, personalized version with fewer irrelevant threats? Try Pixqui Assist.", ctaLabel: "Try Pixqui Assist", ctaPrice: "$4/mo", showUpsell: true },
     assist: { upsellText: "", ctaLabel: "", ctaPrice: "", showUpsell: false },
   };
   const u = upsellMap[context === "assist" ? "assist" : "free"];
