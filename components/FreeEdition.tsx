@@ -46,13 +46,59 @@ const RANK_KEY: { label: string; color: string; bg: string; body: string }[] = [
 
 const MONO = "'JetBrains Mono',monospace";
 
+// Editions publish at these hours; the hero labels are derived from the real clock.
+const EDITIONS = [6, 10, 14, 18, 22];
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const hhmm = (h: number) => `${String(h).padStart(2, "0")}:00`;
+
+type Edition = { editionLabel: string; nextLabel: string; sinceLabel: string };
+
+// Static SSR fallback (matches the original copy) so hydration is stable; replaced on mount.
+const EDITION_FALLBACK: Edition = {
+  editionLabel: "14:00 edition",
+  nextLabel: "Next 18:00",
+  sinceLabel: "Today · since you last looked",
+};
+
+function computeEdition(now: Date | null): Edition {
+  if (!now) return EDITION_FALLBACK;
+  const h = now.getHours();
+
+  const current = EDITIONS.filter((e) => e <= h).pop(); // most recent edition today
+  const beforeFirst = current === undefined; // it's the small hours, before the 06:00 edition
+  const curHour = beforeFirst ? 22 : current!;
+
+  const next = EDITIONS.find((e) => e > h) ?? 6; // next edition (06:00 tomorrow if past 22:00)
+
+  const idx = EDITIONS.indexOf(curHour);
+  const prevHour = idx > 0 ? EDITIONS[idx - 1] : 22; // edition before the current one
+
+  const editionDate = new Date(now);
+  if (beforeFirst) editionDate.setDate(editionDate.getDate() - 1);
+
+  return {
+    editionLabel: `${hhmm(curHour)} edition`,
+    nextLabel: `Next ${hhmm(next)}`,
+    sinceLabel: `${DAYS[editionDate.getDay()]} · since you last looked at ${hhmm(prevHour)}`,
+  };
+}
+
 export default function FreeEdition() {
   const [alertsRead, setAlertsRead] = React.useState(1240);
+  const [edition, setEdition] = React.useState<Edition>(EDITION_FALLBACK);
 
   React.useEffect(() => {
     const t = setInterval(() => {
       setAlertsRead((s) => s + 1 + Math.floor(Math.random() * 3));
     }, 1400);
+    return () => clearInterval(t);
+  }, []);
+
+  // Derive the edition/day labels from the real clock; refresh past edition boundaries.
+  React.useEffect(() => {
+    const tick = () => setEdition(computeEdition(new Date()));
+    tick();
+    const t = setInterval(tick, 30000);
     return () => clearInterval(t);
   }, []);
 
@@ -83,10 +129,10 @@ export default function FreeEdition() {
             </a>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 14, fontFamily: MONO, fontSize: 12, color: "#797977" }}>
-            <span>14:00 edition</span>
+            <span suppressHydrationWarning>{edition.editionLabel}</span>
             <span style={{ display: "flex", alignItems: "center", gap: 7, color: "#6B4F19" }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#7C8B74", display: "inline-block" }} />
-              Next 18:00
+              <span suppressHydrationWarning>{edition.nextLabel}</span>
             </span>
           </div>
         </div>
@@ -97,8 +143,8 @@ export default function FreeEdition() {
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 24, flexWrap: "wrap", marginBottom: "clamp(28px,4vw,46px)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <PixquiMark size={44} />
-            <span style={{ fontFamily: MONO, fontSize: 13, letterSpacing: ".16em", textTransform: "uppercase", color: "#6B4F19" }}>
-              Friday · since you last looked at 10:00
+            <span suppressHydrationWarning style={{ fontFamily: MONO, fontSize: 13, letterSpacing: ".16em", textTransform: "uppercase", color: "#6B4F19" }}>
+              {edition.sinceLabel}
             </span>
           </div>
         </div>
